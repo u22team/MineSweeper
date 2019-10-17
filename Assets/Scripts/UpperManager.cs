@@ -24,7 +24,8 @@ public class UpperManager : MonoBehaviour
             float y = pos.y - 4.5f;
             float d = Mathf.Sqrt(x * x + y * y);
             d = (7 - d) / 32;
-            this.transform.position = new Vector3(this.transform.position.x + x * d, this.transform.position.y + y * d, this.transform.position.z);
+            //this.transform.position = new Vector3(this.transform.position.x + x * d, this.transform.position.y + y * d, this.transform.position.z);
+            this.transform.position = new Vector3(this.transform.position.x + 100, this.transform.position.y, this.transform.position.z);
             yield return new WaitForSeconds(0.01f);
         }
     }

@@ -8,7 +8,7 @@ public class MineManager : MonoBehaviour
     Vector2Int mapSize;
     float scale = 1.4f;
     bool isGroundCreated;
-    bool isCoroutineRunning;
+    bool isCoroutineRunning; //複数コルーチンに対応できないので、intにして１足し１引くみたいな方がいい
 
     [SerializeField] GameObject upper;
     [SerializeField] GameObject ground;
@@ -22,7 +22,7 @@ public class MineManager : MonoBehaviour
 
     void Start()
     {
-        mapSize = new Vector2Int(10, 10);
+        mapSize = new Vector2Int(10, 10); //Mapのサイズによってカメラを制御せんとな
         map = new mapStat(mapSize);
         StartCoroutine(CreateUpper());
         isGroundCreated = false;
@@ -101,13 +101,13 @@ public class MineManager : MonoBehaviour
         CountMines();
     }
 
-    void InstallMines(Vector2Int _mousePos) //詰まないように修正の必要あり
+    void InstallMines(Vector2Int _mousePos) //詰まないように修正の必要あり //検討箇所を絞っていかないと不安定
     {
-        for (int i = 0; i < mapSize.x * mapSize.y / 10; i++)
+        for (int i = 0; i < mapSize.x * mapSize.y / 10; i++) //とりあえずの地雷の個数
         {
             Vector2Int _minePos = new Vector2Int(); //初期化必要？
             bool cannotInstall = true;
-            while (cannotInstall)
+            while (cannotInstall) //これ、場合によっては抜けられなくなるかも
             {
                 _minePos.x = Random.Range(0, mapSize.x);
                 _minePos.y = Random.Range(0, mapSize.y);
@@ -140,7 +140,7 @@ public class MineManager : MonoBehaviour
 
     void OpenSquares(Vector2Int _mousePos)
     {
-        if(map.ugS[_mousePos.x, _mousePos.y].ground.grMana.hasMine) //地雷あり
+        if (map.ugS[_mousePos.x, _mousePos.y].ground.grMana.hasMine) //地雷あり
         {
             //game over処理
         }
@@ -152,41 +152,52 @@ public class MineManager : MonoBehaviour
             }
             else //数字が書いてない
             {
-                List<node> searchPosS = new List<node>();
-                searchPosS.Add(new node(_mousePos, Vector2Int.zero));
-                List<node> _searchPosS = new List<node>(searchPosS);
-                map.ugS[_mousePos.x, _mousePos.y].upper.upMana.Open();
-                StartCoroutine(OpenAnimation(_searchPosS, searchPosS));
+                StartCoroutine(OpenAnimation(_mousePos));
             }
             //if () Clear(); //クリア処理
         }
     }
 
-    IEnumerator OpenAnimation(List<node> _searchPosS, List<node> searchPosS) //広がり方がキモい。斜めへの展開は1回遅延させたほうがいいかもしれない
+    IEnumerator OpenAnimation(Vector2Int _mousePos) //広がり方がキモい。斜めへの展開は1回遅延させたほうがいいかもしれない
     {
-        isCoroutineRunning = true;
-        Vector2Int[] searchDirs = { new Vector2Int(-1, -1), new Vector2Int(-1, 0), new Vector2Int(-1, 1), new Vector2Int(0, -1), new Vector2Int(0, 1), new Vector2Int(1, -1), new Vector2Int(1, 0), new Vector2Int(1, 1) };
-        int i = 0;
-        yield return new WaitForSeconds(.1f);
+        //この配列２つ、二重配列かジャグ配列にしたほうがいいかも まあ数が少ないからいいか いやクラスにしてtrueとかも持たせるとめんどいわ
+        Vector2Int[] searchDirs = { new Vector2Int(-1, 0), new Vector2Int(0, -1), new Vector2Int(0, 1), new Vector2Int(1, 0) };
+        Vector2Int[] searchDirsDiag = { new Vector2Int(-1, -1), new Vector2Int(-1, 1), new Vector2Int(1, -1), new Vector2Int(1, 1) };
 
+        isCoroutineRunning = true;
+        List<node> searchPosS = new List<node>();
+        searchPosS.Add(new node(_mousePos, false));
+
+        int i = 0;
         while (searchPosS.Count > 0 && i < 100) //フリーズ回避策を一応いれておく
         {
+            List<node> _searchPosS = new List<node>(searchPosS);
             foreach (node searchPos in searchPosS)
             {
-                _searchPosS.Remove(searchPos);
-                foreach (Vector2Int searchDir in searchDirs) //for文２回方式とどちらがいいのか
+                if (searchPos.delay) //遅延あり
                 {
-                    if (searchDir != searchPos.exclusion) //来た方向に戻らない
+                    searchPos.delay = false;
+                }
+                else //遅延なし
+                {
+                    map.ugS[searchPos.position.x, searchPos.position.y].upper.upMana.Open();
+                    _searchPosS.Remove(searchPos);
+                    if (map.ugS[searchPos.position.x, searchPos.position.y].ground.grMana.mineCount == 0) //数字が書いてないときだけ予約を入れられる
                     {
-                        Vector2Int nextSearchPos = searchPos.position + searchDir;
-                        if (IsInMap(nextSearchPos)
-                            && !map.ugS[nextSearchPos.x, nextSearchPos.y].upper.upMana.open
-                            && !map.ugS[nextSearchPos.x, nextSearchPos.y].upper.upMana.flag)
+                        search(searchDirs, false); //垂直方向
+                        search(searchDirsDiag, true); //斜め方向 順番を入れ替えてはならない
+                    }
+
+                    void search(Vector2Int[] _vc, bool tf)
+                    {
+                        foreach (Vector2Int searchDir in _vc) //for文２回方式とどちらがいいのか ここは無理だが
                         {
-                            map.ugS[nextSearchPos.x, nextSearchPos.y].upper.upMana.Open();
-                            if (map.ugS[nextSearchPos.x, nextSearchPos.y].ground.grMana.mineCount == 0) //数字が書いてないときだけ
+                            Vector2Int nextSearchPos = searchPos.position + searchDir;
+                            if (IsInMap(nextSearchPos)
+                                && !map.ugS[nextSearchPos.x, nextSearchPos.y].upper.upMana.open
+                                && !map.ugS[nextSearchPos.x, nextSearchPos.y].upper.upMana.flag)
                             {
-                                _searchPosS.Add(new node(nextSearchPos, oppositeDir(searchDir)));
+                                _searchPosS.Add(new node(nextSearchPos, tf));
                             }
                         }
                     }
@@ -194,7 +205,7 @@ public class MineManager : MonoBehaviour
             }
             i++;
             searchPosS = new List<node>(_searchPosS); //listはデフォルトで参照渡しのため、コンストラクタを利用する
-            yield return new WaitForSeconds(.1f);
+            yield return new WaitForSeconds(.05f);
         }
         isCoroutineRunning = false;
         yield break; //これ必要ないのか
@@ -230,11 +241,6 @@ public class MineManager : MonoBehaviour
                 if (_pos == _minePos) return true;
             }
         return false;
-    }
-
-    Vector2Int oppositeDir(Vector2Int vec)
-    {
-        return new Vector2Int(-vec.x, -vec.y);
     }
 
     //型の宣言
@@ -293,11 +299,11 @@ public class MineManager : MonoBehaviour
     class node
     {
         public Vector2Int position;
-        public Vector2Int exclusion;
-        public node(Vector2Int position, Vector2Int exclusion)
+        public bool delay;
+        public node(Vector2Int _position, bool _delay)
         {
-            this.position = position;
-            this.exclusion = exclusion;
+            this.position = _position;
+            this.delay = _delay;
         }
     }
 }
