@@ -6,7 +6,7 @@ public class Game : Function
 {
     // ゲーム設定↓
     readonly Vector2Int MapSize = new Vector2Int(10, 10);
-    readonly int MineProb = 5; // Mineの確率 [%]
+    readonly int MineProb = 0; // Mineの確率 [%]
     //
     void Start()
     {
@@ -66,7 +66,7 @@ public class Game : Function
                     }
                     else if (judge == 0)
                     {
-                        yield return StartCoroutine(SpreadStart(coordinate.x, coordinate.y));
+                        yield return StartCoroutine(Spread(coordinate.x, coordinate.y));
                     }
                 }
             }
@@ -81,17 +81,6 @@ public class Game : Function
             }
             yield return null;
         }
-    }
-    IEnumerator SpreadStart(int x, int y)
-    {
-        SomeIEnumerator sie = new SomeIEnumerator(this);
-        yield return sie.StartCoroutine
-            (
-                Spread(x - 1, y),
-                Spread(x + 1, y),
-                Spread(x, y + 1),
-                Spread(x, y - 1)
-            );
     }
     IEnumerator Spread(int x, int y)
     {
