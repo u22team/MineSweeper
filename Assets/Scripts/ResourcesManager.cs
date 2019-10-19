@@ -22,7 +22,7 @@ public class ResourcesManager : MonoBehaviour
         ground = Resources.Load<GameObject>("Prefabs/ground");
 
         sprCounts = new Sprite[9];
-        for (int i = 0; i <= 9; i++) sprCounts[i] = Resources.Load<Sprite>("Sprites/" + i.ToString());
+        for (int i = 0; i < 9; i++) sprCounts[i] = Resources.Load<Sprite>("Sprites/" + i.ToString());
 
         sprMine = Resources.Load<Sprite>("Sprites/mine");
         sprFlag = Resources.Load<Sprite>("Sprites/Flag");

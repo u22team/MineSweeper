@@ -13,13 +13,13 @@ public class MineManager : MonoBehaviour
 
     void Start()
     {
-        ResourcesManager.LoadResources(); //普通に書けば終了するまで次へは進まないはず
+        ResourcesManager.LoadResources(); //普通に書けば終了するまで次へは進まないはず 勉強のためasyncにしてみよう
         mapSize = new Vector2Int(10, 10); //Mapのサイズによってカメラを制御せんとな
         map = new mapStat(mapSize);
+        parent = this.gameObject;
         StartCoroutine(CreateUpper());
         isGroundCreated = false;
         isCoroutineRunning = false;
-        parent = this.gameObject;
     }
 
     void Update()
@@ -59,7 +59,7 @@ public class MineManager : MonoBehaviour
         }
     }
 
-    //メジャーなメソッド群
+    // =============================================== メジャーなメソッド群 ================================================================================
 
     IEnumerator CreateUpper()
     {
@@ -85,9 +85,27 @@ public class MineManager : MonoBehaviour
         CountMines();
     }
 
-    void InstallMines(Vector2Int _mousePos) //詰まないように修正の必要あり //検討箇所を絞っていかないと不安定
+    void InstallMines(Vector2Int _mousePos)
     {
-        for (int i = 0; i < mapSize.x * mapSize.y / 10; i++) //とりあえずの地雷の個数
+        /*
+        List<Vector2Int> squarePosList = new List<Vector2Int>();
+        for (int i = 0; i < mapSize.x; i++) //これデリゲートにすればいいということがわかったぞ ラムダ式を引数に？
+            for (int j = 0; j < mapSize.y; j++)
+                if (!IsAroundMousePos(new Vector2Int(i, j), _mousePos))
+                    squarePosList.Add(new Vector2Int(i, j));
+
+        for (int i = 0; i < map.mineNum; i++)
+        {
+            //Vector2Int _minePos = squarePosList[Random.Range(0, squarePosList.Count)];
+            Vector2Int _minePos = squarePosList[Random.Range(0, Random.Range(squarePosList.Count, 10000)) % squarePosList.Count];
+            map.ugS[_minePos.x, _minePos.y].grMana.installMine();
+            map.minesPos.Add(_minePos);
+            squarePosList.Remove(_minePos); //こうすることで判定せず設置でき、安定的に地雷を設置できる
+        }
+        */
+        // ↑何か偏りが生じる気がする
+
+        for (int i = 0; i < map.mineNum; i++) //とりあえずの地雷の個数
         {
             Vector2Int _minePos = new Vector2Int(); //初期化必要？
             bool cannotInstall = true;
@@ -97,9 +115,8 @@ public class MineManager : MonoBehaviour
                 _minePos.y = Random.Range(0, mapSize.y);
                 cannotInstall = map.ugS[_minePos.x, _minePos.y].grMana.hasMine || IsAroundMousePos(_minePos, _mousePos);
             }
-            map.ugS[_minePos.x, _minePos.y].grMana.installMine(); //hasMine = true;
-            map.minesPos.Add(new Vector2Int(_minePos.x, _minePos.y));
-            //map.ugS[_minePos.x, _minePos.y].grMana.sprren.sprite = sprMine;
+            map.ugS[_minePos.x, _minePos.y].grMana.installMine();
+            map.minesPos.Add(_minePos);
         }
     }
 
@@ -108,15 +125,15 @@ public class MineManager : MonoBehaviour
         foreach (Vector2Int _minePos in map.minesPos)
         {
             for (int i = -1; i <= 1; i++)
-                for (int j = -1; j <= 1; j++)
+                for (int j = -1; j <= 1; j++) //正直いいやり方ではない
                 {
                     Vector2Int _pos = _minePos + new Vector2Int(i, j);
-                    if (IsInMap(_pos) && _pos != _minePos) map.ugS[_pos.x, _pos.y].grMana.mineCount += 1; //mineCountを直接いじるのはあんま気持ちよくない
+                    if (IsInMap(_pos) && _pos != _minePos) map.ugS[_pos.x, _pos.y].grMana.plusMineCount();
                 }
         }
         for (int i = 0; i < mapSize.x; i++)
             for (int j = 0; j < mapSize.y; j++)
-                map.ugS[i, j].grMana.setMineCount();
+                map.ugS[i, j].grMana.setMineCountSpr();
     }
 
     void OpenSquares(Vector2Int _mousePos)
@@ -127,14 +144,10 @@ public class MineManager : MonoBehaviour
         }
         else
         {
-            if (map.ugS[_mousePos.x, _mousePos.y].grMana.mineCount > 0) //数字が書いてある これ数字が書いてないときの処理と同じでいいような
-            {
+            if (map.ugS[_mousePos.x, _mousePos.y].grMana.mineCount > 0) //数字が書いてある これ数字が書いてないときの処理と同じでいいような 軽量化のためこれでいいか
                 map.ugS[_mousePos.x, _mousePos.y].upMana.Open();
-            }
-            else //数字が書いてない
-            {
-                StartCoroutine(OpenAnimation(_mousePos));
-            }
+            else StartCoroutine(OpenAnimation(_mousePos)); //数字が書いてない
+
             //if () Clear(); //クリア処理
         }
     }
@@ -187,17 +200,17 @@ public class MineManager : MonoBehaviour
             }
             i++;
             searchPosS = new List<node>(_searchPosS); //listはデフォルトで参照渡しのため、コンストラクタを利用する
-            yield return new WaitForSeconds(.05f);
+            yield return new WaitForSeconds(.07f);
         }
         isCoroutineRunning = false;
         yield break; //これ必要ないのか
     }
 
-    //細かいメソッド
+    // ================================================== 細かいメソッド ==================================================================================
 
-    bool MousePosToMap(Vector3 _mousePos, out Vector2Int _mousePosToMap)
+    bool MousePosToMap(Vector3 _mousePos, out Vector2Int _mousePosToMap) //これなんとかして各Upperに持たせられないかな
     {
-        _mousePosToMap = new Vector2Int(-100, -100);
+        _mousePosToMap = new Vector2Int();
         Ray ray = Camera.main.ScreenPointToRay(_mousePos);
         RaycastHit2D hit2d = Physics2D.Raycast((Vector2)ray.origin, (Vector2)ray.direction);
 
@@ -209,7 +222,7 @@ public class MineManager : MonoBehaviour
         return false;
     }
 
-    bool IsInMap(Vector2Int _pos) //名前を修正しろ //mapサイズはグローバル変数で良くないか
+    bool IsInMap(Vector2Int _pos)
     {
         return 0 <= _pos.x && _pos.x < mapSize.x && 0 <= _pos.y && _pos.y < mapSize.y;
     }
@@ -225,16 +238,21 @@ public class MineManager : MonoBehaviour
         return false;
     }
 
-    //型の宣言
+    // ======================================= 型の宣言 ===================================================================================================
 
     class mapStat //全部staticにすればインスタンス地獄に悩むこともないが、拡張性の観点からこのままでもいいかも
     {
         public ugArray[,] ugS;
         public List<Vector2Int> minesPos = new List<Vector2Int>();
-        public mapStat(Vector2Int vc) //配列はlistと違って必ずインスタンス化の必要がある
+
+        public int mineNum;
+        public mapStat(Vector2Int _mapSize) //配列はlistと違って必ずインスタンス化の必要がある
         {
-            this.ugS = new ugArray[vc.x, vc.y];
-            for (int i = 0; i < vc.x; i++) for (int j = 0; j < vc.y; j++) this.ugS[i, j] = new ugArray();
+            this.ugS = new ugArray[_mapSize.x, _mapSize.y];
+            for (int i = 0; i < _mapSize.x; i++)
+                for (int j = 0; j < _mapSize.y; j++)
+                    this.ugS[i, j] = new ugArray();
+            mineNum = _mapSize.x * _mapSize.y / 8;
         }
 
         public class ugArray //Instantiate -> GameObjectからManagerを取得 -> Managerの中にGameObjectを代入 の方がいいか

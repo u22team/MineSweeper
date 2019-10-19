@@ -7,23 +7,27 @@ public class GroundManager : MonoBehaviour
     public int mineCount = 0;
     public bool hasMine = false;
 
-    public GameObject gameObj;
     public Vector2Int pos;
     public SpriteRenderer sprren;
 
     public void instantiate(Vector2Int _vc)
     {
-        gameObj = this.gameObject; //今の所使う予定はない
         pos = _vc;
-        sprren = gameObj.GetComponent<SpriteRenderer>();
+        sprren = this.gameObject.GetComponent<SpriteRenderer>();
     }
 
     public void installMine()
     {
-
+        hasMine = true;
+        sprren.sprite = ResourcesManager.sprMine;
     }
 
-    public void setMineCount()
+    public void plusMineCount()
+    {
+        mineCount++;
+    }
+
+    public void setMineCountSpr()
     {
         sprren.sprite = ResourcesManager.sprCounts[mineCount];
     }

@@ -7,15 +7,13 @@ public class UpperManager : MonoBehaviour
     public bool open = false;
     public bool flag = false;
 
-    public GameObject gameObj;
     public Vector2Int pos;
     public SpriteRenderer sprren;
 
     public void instantiate(Vector2Int _vc)
     {
-        gameObj = this.gameObject; //今の所使う予定はない
         pos = _vc;
-        sprren = gameObj.GetComponent<SpriteRenderer>();
+        sprren = this.gameObject.GetComponent<SpriteRenderer>();
     }
 
     public void Flag()
@@ -41,6 +39,14 @@ public class UpperManager : MonoBehaviour
     IEnumerator OpenAnimation() //一応Destroyしないでとっておこう
     {
         this.gameObject.GetComponent<Collider2D>().enabled = false;
+        for(int i = 0; i < 50; i++)
+        {
+            this.transform.localScale = new Vector3((50f - i) / 50, (50f - i) / 50, 1);
+            this.transform.Rotate(new Vector3(0, 0, -1), 3.6f);
+            yield return new WaitForSeconds(0.01f);
+        }
+        this.transform.position = new Vector3(this.transform.position.x + 100, this.transform.position.y, this.transform.position.z);
+        /*
         for (int i = 0; i < 1000; i++) //カーソルから離れるような挙動のほうが面白いかも
         {
             float x = pos.x - 4.5f;
@@ -51,5 +57,6 @@ public class UpperManager : MonoBehaviour
             this.transform.position = new Vector3(this.transform.position.x + 100, this.transform.position.y, this.transform.position.z);
             yield return new WaitForSeconds(0.01f);
         }
+        */
     }
 }

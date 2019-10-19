@@ -129,6 +129,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 308914153}
+  - component: {fileID: 308914155}
   - component: {fileID: 308914154}
   m_Layer: 0
   m_Name: Parent
@@ -163,22 +164,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bf09f7d7af61b8f4884413b23be82a2a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  upper: {fileID: 2983159371120177620, guid: 44ee847086265db40812acbaa4ad8536, type: 3}
-  ground: {fileID: 3418310214243749395, guid: 68ab000139b546947bde214d8c46e0f3, type: 3}
-  parent: {fileID: 308914152}
-  sprCounts:
-  - {fileID: 0}
-  - {fileID: 21300000, guid: 97953d2243f7e7343b24dc64749bf020, type: 3}
-  - {fileID: 21300000, guid: a08fa40bd70a6034e919f1062effeadc, type: 3}
-  - {fileID: 21300000, guid: 9e8b8ac1e71ac154caf589f5d2bcb8e1, type: 3}
-  - {fileID: 21300000, guid: bdd440263fbc78e449e2e9c22957bdeb, type: 3}
-  - {fileID: 21300000, guid: d22607aa500fff84d9291f8740b3b5ac, type: 3}
-  - {fileID: 21300000, guid: d2190f44673e98d4e9c944baa31a6244, type: 3}
-  - {fileID: 21300000, guid: d2b3ff1a0946a9e46b25aace92b3d109, type: 3}
-  - {fileID: 21300000, guid: 5a369e79272a8c54a9d80a43fe6ea688, type: 3}
-  sprMine: {fileID: 21300000, guid: ed08f90e3b74c3840bec99e7152ab6f7, type: 3}
-  sprFlag: {fileID: 21300000, guid: f74c353371db589458a3d8d7ffdfb312, type: 3}
-  sprDef: {fileID: 21300000, guid: 79078b35e01a2d643b87c60c517b261a, type: 3}
+--- !u!114 &308914155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 308914152}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 285cf7a933e7b384ca129594a5e30e6a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
