@@ -9,29 +9,22 @@ public class MineManager : MonoBehaviour
     float scale = 1.4f;
     bool isGroundCreated;
     bool isCoroutineRunning; //複数コルーチンに対応できないので、intにして１足し１引くみたいな方がいい
-
-    [SerializeField] GameObject upper;
-    [SerializeField] GameObject ground;
-    [SerializeField] GameObject parent;
-
-    [SerializeField] Sprite[] sprCounts;
-    [SerializeField] Sprite sprMine;
-
-    [SerializeField] Sprite sprFlag;
-    [SerializeField] Sprite sprDef;
+    GameObject parent;
 
     void Start()
     {
+        ResourcesManager.LoadResources(); //普通に書けば終了するまで次へは進まないはず
         mapSize = new Vector2Int(10, 10); //Mapのサイズによってカメラを制御せんとな
         map = new mapStat(mapSize);
         StartCoroutine(CreateUpper());
         isGroundCreated = false;
         isCoroutineRunning = false;
+        parent = this.gameObject;
     }
 
     void Update()
     {
-        if (Input.GetMouseButtonDown(0)) //ここもう少しスマートに書きたい
+        if (Input.GetMouseButtonDown(0)) //ここもう少しスマートに書きたい コルーチンにするといいらしい
         {
             if (!isCoroutineRunning)
             {
@@ -45,8 +38,8 @@ public class MineManager : MonoBehaviour
 
                     }
 
-                    if (!map.ugS[mousePos.x, mousePos.y].upper.upMana.open //openで判断するよりもクリックしたgameobjectで判断するほうが確実のような気がする
-                        && !map.ugS[mousePos.x, mousePos.y].upper.upMana.flag) //というかgroundクリックする必要ないんだからコライダをつけなければいいだけでは
+                    if (!map.ugS[mousePos.x, mousePos.y].upMana.open //openで判断するよりもクリックしたgameobjectで判断するほうが確実のような気がする
+                        && !map.ugS[mousePos.x, mousePos.y].upMana.flag) //というかgroundクリックする必要ないんだからコライダをつけなければいいだけでは
                     {
                         OpenSquares(mousePos);
                     }
@@ -60,16 +53,7 @@ public class MineManager : MonoBehaviour
                 Vector2Int mousePos;
                 if (MousePosToMap(Input.mousePosition, out mousePos))
                 {
-                    if (!map.ugS[mousePos.x, mousePos.y].upper.upMana.flag) //関数にしたほうがいいかも
-                    {
-                        map.ugS[mousePos.x, mousePos.y].upper.upMana.flag = true;
-                        map.ugS[mousePos.x, mousePos.y].upper.sprren.sprite = sprFlag;
-                    }
-                    else
-                    {
-                        map.ugS[mousePos.x, mousePos.y].upper.upMana.flag = false;
-                        map.ugS[mousePos.x, mousePos.y].upper.sprren.sprite = sprDef;
-                    }
+                    map.ugS[mousePos.x, mousePos.y].upMana.Flag();
                 }
             }
         }
@@ -88,8 +72,8 @@ public class MineManager : MonoBehaviour
                 SquareManager sm = (true ? ugObjects.uppers : ugObjects.grounds)[i, j].GetComponent<SquareManager>();
                 */
                 Vector2Int _vc = new Vector2Int(i, j);
-                map.ugS[i, j].upper.instantiate(_vc, Instantiate(upper, scale * new Vector3(i, j, 0), Quaternion.identity, parent.transform));
-                map.ugS[i, j].ground.instantiate(_vc, Instantiate(ground, scale * new Vector3(i, j, 0), Quaternion.identity, parent.transform));
+                map.ugS[i, j].instantiateUpper(_vc, Instantiate(ResourcesManager.upper, scale * new Vector3(i, j, 0), Quaternion.identity, parent.transform));
+                map.ugS[i, j].instantiateGround(_vc, Instantiate(ResourcesManager.ground, scale * new Vector3(i, j, 0), Quaternion.identity, parent.transform));
                 yield return new WaitForSeconds(.01f);
             }
         isCoroutineRunning = false;
@@ -111,11 +95,11 @@ public class MineManager : MonoBehaviour
             {
                 _minePos.x = Random.Range(0, mapSize.x);
                 _minePos.y = Random.Range(0, mapSize.y);
-                cannotInstall = map.ugS[_minePos.x, _minePos.y].ground.grMana.hasMine || IsAroundMousePos(_minePos, _mousePos);
+                cannotInstall = map.ugS[_minePos.x, _minePos.y].grMana.hasMine || IsAroundMousePos(_minePos, _mousePos);
             }
-            map.ugS[_minePos.x, _minePos.y].ground.grMana.hasMine = true;
+            map.ugS[_minePos.x, _minePos.y].grMana.installMine(); //hasMine = true;
             map.minesPos.Add(new Vector2Int(_minePos.x, _minePos.y));
-            map.ugS[_minePos.x, _minePos.y].ground.sprren.sprite = sprMine;
+            //map.ugS[_minePos.x, _minePos.y].grMana.sprren.sprite = sprMine;
         }
     }
 
@@ -127,28 +111,25 @@ public class MineManager : MonoBehaviour
                 for (int j = -1; j <= 1; j++)
                 {
                     Vector2Int _pos = _minePos + new Vector2Int(i, j);
-                    if (IsInMap(_pos)) if (_pos != _minePos) map.ugS[_pos.x, _pos.y].ground.grMana.mineCount += 1;
+                    if (IsInMap(_pos) && _pos != _minePos) map.ugS[_pos.x, _pos.y].grMana.mineCount += 1; //mineCountを直接いじるのはあんま気持ちよくない
                 }
         }
         for (int i = 0; i < mapSize.x; i++)
             for (int j = 0; j < mapSize.y; j++)
-            {
-                int _count = map.ugS[i, j].ground.grMana.mineCount;
-                if (_count > 0) map.ugS[i, j].ground.sprren.sprite = sprCounts[_count];
-            }
+                map.ugS[i, j].grMana.setMineCount();
     }
 
     void OpenSquares(Vector2Int _mousePos)
     {
-        if (map.ugS[_mousePos.x, _mousePos.y].ground.grMana.hasMine) //地雷あり
+        if (map.ugS[_mousePos.x, _mousePos.y].grMana.hasMine) //地雷あり
         {
             //game over処理
         }
         else
         {
-            if (map.ugS[_mousePos.x, _mousePos.y].ground.grMana.mineCount > 0) //数字が書いてある これ数字が書いてないときの処理と同じでいいような
+            if (map.ugS[_mousePos.x, _mousePos.y].grMana.mineCount > 0) //数字が書いてある これ数字が書いてないときの処理と同じでいいような
             {
-                map.ugS[_mousePos.x, _mousePos.y].upper.upMana.Open();
+                map.ugS[_mousePos.x, _mousePos.y].upMana.Open();
             }
             else //数字が書いてない
             {
@@ -180,9 +161,9 @@ public class MineManager : MonoBehaviour
                 }
                 else //遅延なし
                 {
-                    map.ugS[searchPos.position.x, searchPos.position.y].upper.upMana.Open();
+                    map.ugS[searchPos.position.x, searchPos.position.y].upMana.Open();
                     _searchPosS.Remove(searchPos);
-                    if (map.ugS[searchPos.position.x, searchPos.position.y].ground.grMana.mineCount == 0) //数字が書いてないときだけ予約を入れられる
+                    if (map.ugS[searchPos.position.x, searchPos.position.y].grMana.mineCount == 0) //数字が書いてないときだけ予約を入れられる
                     {
                         search(searchDirs, false); //垂直方向
                         search(searchDirsDiag, true); //斜め方向 順番を入れ替えてはならない
@@ -194,10 +175,11 @@ public class MineManager : MonoBehaviour
                         {
                             Vector2Int nextSearchPos = searchPos.position + searchDir;
                             if (IsInMap(nextSearchPos)
-                                && !map.ugS[nextSearchPos.x, nextSearchPos.y].upper.upMana.open
-                                && !map.ugS[nextSearchPos.x, nextSearchPos.y].upper.upMana.flag)
+                                && !map.ugS[nextSearchPos.x, nextSearchPos.y].upMana.open
+                                && !map.ugS[nextSearchPos.x, nextSearchPos.y].upMana.flag)
                             {
                                 _searchPosS.Add(new node(nextSearchPos, tf));
+                                map.ugS[nextSearchPos.x, nextSearchPos.y].upMana.PlanToOpen();
                             }
                         }
                     }
@@ -245,7 +227,7 @@ public class MineManager : MonoBehaviour
 
     //型の宣言
 
-    class mapStat
+    class mapStat //全部staticにすればインスタンス地獄に悩むこともないが、拡張性の観点からこのままでもいいかも
     {
         public ugArray[,] ugS;
         public List<Vector2Int> minesPos = new List<Vector2Int>();
@@ -255,43 +237,21 @@ public class MineManager : MonoBehaviour
             for (int i = 0; i < vc.x; i++) for (int j = 0; j < vc.y; j++) this.ugS[i, j] = new ugArray();
         }
 
-        public class ugArray
+        public class ugArray //Instantiate -> GameObjectからManagerを取得 -> Managerの中にGameObjectを代入 の方がいいか
         {
-            public upperStat upper;
-            public groundStat ground;
+            public UpperManager upMana;
+            public GroundManager grMana;
 
-            public ugArray()
+            public void instantiateUpper(Vector2Int _vc, GameObject go)
             {
-                upper = new upperStat();
-                ground = new groundStat();
+                this.upMana = go.GetComponent<UpperManager>();
+                this.upMana.instantiate(_vc);
             }
 
-            public class upperStat
+            public void instantiateGround(Vector2Int _vc, GameObject go)
             {
-                public GameObject gameObj;
-                public UpperManager upMana;
-                public SpriteRenderer sprren;
-                public void instantiate(Vector2Int vc, GameObject go)
-                {
-                    this.gameObj = go;
-                    this.upMana = go.GetComponent<UpperManager>();
-                    this.sprren = go.GetComponent<SpriteRenderer>();
-                    this.upMana.pos = vc;
-                }
-            }
-
-            public class groundStat
-            {
-                public GameObject gameObj;
-                public GroundManager grMana;
-                public SpriteRenderer sprren;
-                public void instantiate(Vector2Int vc, GameObject go)
-                {
-                    this.gameObj = go;
-                    this.grMana = go.GetComponent<GroundManager>();
-                    this.sprren = go.GetComponent<SpriteRenderer>();
-                    this.grMana.pos = vc;
-                }
+                this.grMana = go.GetComponent<GroundManager>();
+                this.grMana.instantiate(_vc);
             }
         }
     }
