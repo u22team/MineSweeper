@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class MineManager : MonoBehaviour
 {
@@ -8,25 +9,32 @@ public class MineManager : MonoBehaviour
     Vector2Int mapSize;
     float scale = 1.4f;
     bool isGroundCreated;
-    bool isCoroutineRunning; //複数コルーチンに対応できないので、intにして１足し１引くみたいな方がいい
-    GameObject parent;
+    int isCoroutineRunning; //複数コルーチンに対応できないので、intにして１足し１引くみたいな方がいい
+    [SerializeField] GameObject gameover;
+    [SerializeField] GameObject timeobj;
+    float startTime = 0;
+    bool start = false;
+    float laps;
 
     void Start()
     {
         ResourcesManager.LoadResources(); //普通に書けば終了するまで次へは進まないはず 勉強のためasyncにしてみよう
         mapSize = new Vector2Int(10, 10); //Mapのサイズによってカメラを制御せんとな
         map = new mapStat(mapSize);
-        parent = this.gameObject;
-        StartCoroutine(CreateUpper());
+        ResourcesManager.parent = this.gameObject;
+        //StartCoroutine(CreateUpper());
         isGroundCreated = false;
-        isCoroutineRunning = false;
+        isCoroutineRunning = 0;
     }
 
     void Update()
     {
+        laps = Time.time - startTime;
+        string strtime = ((int)laps / 60).ToString() + "m\n" + (laps % 60).ToString("f1") + "s";
+        if (start) timeobj.GetComponent<Text>().text = strtime;
         if (Input.GetMouseButtonDown(0)) //ここもう少しスマートに書きたい コルーチンにするといいらしい
         {
-            if (!isCoroutineRunning)
+            if (isCoroutineRunning == 0)
             {
                 Vector2Int mousePos;
                 if (MousePosToMap(Input.mousePosition, out mousePos)) //outにしたのでopen不要説
@@ -35,11 +43,12 @@ public class MineManager : MonoBehaviour
                     {
                         CreateGround(mousePos);
                         isGroundCreated = true;
-
+                        startTime = Time.time;
+                        start = true;
                     }
 
                     if (!map.ugS[mousePos.x, mousePos.y].upMana.open //openで判断するよりもクリックしたgameobjectで判断するほうが確実のような気がする
-                        && !map.ugS[mousePos.x, mousePos.y].upMana.flag) //というかgroundクリックする必要ないんだからコライダをつけなければいいだけでは
+                        && !map.ugS[mousePos.x, mousePos.y].upMana.flag) //ここで判定かますのはあんまいい考えとは思えない
                     {
                         OpenSquares(mousePos);
                     }
@@ -48,7 +57,7 @@ public class MineManager : MonoBehaviour
         }
         else if (Input.GetMouseButtonDown(1))
         {
-            if (!isCoroutineRunning)
+            if (isCoroutineRunning == 0)
             {
                 Vector2Int mousePos;
                 if (MousePosToMap(Input.mousePosition, out mousePos))
@@ -57,13 +66,21 @@ public class MineManager : MonoBehaviour
                 }
             }
         }
+
+        //if (Input.GetKeyDown(KeyCode.H)) Hint1(); //まだ作りかけ
     }
 
     // =============================================== メジャーなメソッド群 ================================================================================
 
+    public void StartCreateUpper()
+    {
+        timeobj.SetActive(true);
+        StartCoroutine(CreateUpper());
+    }
+
     IEnumerator CreateUpper()
     {
-        isCoroutineRunning = true;
+        isCoroutineRunning++;
         for (int i = 0; i < mapSize.x; i++)
             for (int j = 0; j < mapSize.y; j++)
             {
@@ -72,11 +89,11 @@ public class MineManager : MonoBehaviour
                 SquareManager sm = (true ? ugObjects.uppers : ugObjects.grounds)[i, j].GetComponent<SquareManager>();
                 */
                 Vector2Int _vc = new Vector2Int(i, j);
-                map.ugS[i, j].instantiateUpper(_vc, Instantiate(ResourcesManager.upper, scale * new Vector3(i, j, 0), Quaternion.identity, parent.transform));
-                map.ugS[i, j].instantiateGround(_vc, Instantiate(ResourcesManager.ground, scale * new Vector3(i, j, 0), Quaternion.identity, parent.transform));
+                map.ugS[i, j].instantiateUpper(_vc, Instantiate(ResourcesManager.upper, scale * new Vector3(i, j, 0), Quaternion.identity, ResourcesManager.parent.transform));
+                map.ugS[i, j].instantiateGround(_vc, Instantiate(ResourcesManager.ground, scale * new Vector3(i, j, 0), Quaternion.identity, ResourcesManager.parent.transform));
                 yield return new WaitForSeconds(.01f);
             }
-        isCoroutineRunning = false;
+        isCoroutineRunning--;
     }
 
     void CreateGround(Vector2Int _mousePos)
@@ -138,27 +155,55 @@ public class MineManager : MonoBehaviour
 
     void OpenSquares(Vector2Int _mousePos)
     {
-        if (map.ugS[_mousePos.x, _mousePos.y].grMana.hasMine) //地雷あり
+        if (map.ugS[_mousePos.x, _mousePos.y].grMana.hasMine) //地雷あり game over処理
         {
-            //game over処理
+            start = false;
+            map.ugS[_mousePos.x, _mousePos.y].upMana.Open();
+            Camera.main.GetComponent<CameraManager>().ShakeCamera();
+            StartCoroutine(OpenMinesAnimation(_mousePos));
         }
         else
         {
-            if (map.ugS[_mousePos.x, _mousePos.y].grMana.mineCount > 0) //数字が書いてある これ数字が書いてないときの処理と同じでいいような 軽量化のためこれでいいか
+            if (map.ugS[_mousePos.x, _mousePos.y].grMana.mineCount > 0)
+            { //数字が書いてある これ数字が書いてないときの処理と同じでいいような 軽量化のためこれでいいか
                 map.ugS[_mousePos.x, _mousePos.y].upMana.Open();
+                map.openedSquares.Add(new hintNode(_mousePos));
+                if (map.openedSquares.Count + map.mineNum == mapSize.x * mapSize.y) Clear(); //クリア処理
+            }
             else StartCoroutine(OpenAnimation(_mousePos)); //数字が書いてない
-
-            //if () Clear(); //クリア処理
         }
     }
 
-    IEnumerator OpenAnimation(Vector2Int _mousePos) //広がり方がキモい。斜めへの展開は1回遅延させたほうがいいかもしれない
+    void Clear()
     {
+        start = false;
+        gameover.GetComponent<GameOverManager>().GameClear(laps);
+    }
+
+    IEnumerator OpenMinesAnimation(Vector2Int vc)
+    {
+        isCoroutineRunning++;
+        yield return new WaitForSeconds(1);
+        for (int i = 1; i < mapSize.x; i++) //広がるようにやりたいからこのクソ手間のかかる方法をとりあえず
+        {
+            for (int j = -i; j <= i; j++)
+                for (int k = -i; k <= i; k++)
+                {
+                    Vector2Int vc2 = vc + new Vector2Int(j, k);
+                    if (IsInMap(vc2) && map.ugS[vc2.x, vc2.y].grMana.hasMine && !map.ugS[vc2.x, vc2.y].upMana.open) map.ugS[vc2.x, vc2.y].upMana.Open();
+                }
+            yield return new WaitForSeconds(.2f);
+        }
+        gameover.GetComponent<GameOverManager>().GameOver();
+    }
+
+    IEnumerator OpenAnimation(Vector2Int _mousePos)
+    {
+        isCoroutineRunning++;
         //この配列２つ、二重配列かジャグ配列にしたほうがいいかも まあ数が少ないからいいか いやクラスにしてtrueとかも持たせるとめんどいわ
         Vector2Int[] searchDirs = { new Vector2Int(-1, 0), new Vector2Int(0, -1), new Vector2Int(0, 1), new Vector2Int(1, 0) };
         Vector2Int[] searchDirsDiag = { new Vector2Int(-1, -1), new Vector2Int(-1, 1), new Vector2Int(1, -1), new Vector2Int(1, 1) };
 
-        isCoroutineRunning = true;
         List<node> searchPosS = new List<node>();
         searchPosS.Add(new node(_mousePos, false));
 
@@ -175,6 +220,7 @@ public class MineManager : MonoBehaviour
                 else //遅延なし
                 {
                     map.ugS[searchPos.position.x, searchPos.position.y].upMana.Open();
+                    map.openedSquares.Add(new hintNode(searchPos.position));
                     _searchPosS.Remove(searchPos);
                     if (map.ugS[searchPos.position.x, searchPos.position.y].grMana.mineCount == 0) //数字が書いてないときだけ予約を入れられる
                     {
@@ -202,8 +248,48 @@ public class MineManager : MonoBehaviour
             searchPosS = new List<node>(_searchPosS); //listはデフォルトで参照渡しのため、コンストラクタを利用する
             yield return new WaitForSeconds(.07f);
         }
-        isCoroutineRunning = false;
+        if (map.openedSquares.Count + map.mineNum == mapSize.x * mapSize.y) Clear(); //クリア処理
+
+        isCoroutineRunning--;
         yield break; //これ必要ないのか
+    }
+
+    public void Hint1() //作りかけ 間違ったflagの強調、flagがないときの強調、flag数が十分なときの
+    {
+        /*
+        for (int i = 0; i < mapSize.x; i++) //まず間違ったflagの指摘 flagもlistにぶち込んだほうが効率は良い 意図的に適当なflagを置いて確認するという戦法が有り得てしまう
+            for (int j = 0; j < mapSize.y; j++)
+            {
+                if (map.ugS[i, j].upMana.flag == true && map.ugS[i, j].grMana.hasMine == false)
+                {
+                    map.ugS[i, j].instantiateEmphasis(new Vector2Int(i, j), Instantiate(ResourcesManager.emphasis, scale * new Vector3(i, j, 0), Quaternion.identity, ResourcesManager.parent.transform));
+                    return;
+                }
+            }
+
+        foreach (hintNode openedSquare in map.openedSquares) // 次に、flagが立ってなかったらその時点でそこを強調表示し、flagを立てさせる。
+        { 
+            int closedCount = 0;
+            for (int i = -1; i <= 1; i++)
+                for (int j = -1; j <= 1; j++) //destroyのタイミング管理結構面倒だぞ 生成と同時にコルーチンを呼び出し、1.openされたら削除、2.flagを立てられたら削除、3.数字に等しくなったら削除
+                {
+                    Vector2Int _pos = openedSquare.pos + new Vector2Int(i, j);
+                    if (IsInMap(_pos)) if (map.ugS[_pos.x, _pos.y].upMana.open == false) closedCount++;
+                }
+            if (closedCount == map.ugS[openedSquare.pos.x, openedSquare.pos.y].grMana.mineCount)
+            {
+                //Instantiate(ResourcesManager.emphasis, scale * new Vector3(i, j, 0), Quaternion.identity, ResourcesManager.parent.transform);
+            }
+        }
+
+        while (true)
+        {
+            foreach (hintNode openedSquare in map.openedSquares)
+            {
+                Instantiate(ResourcesManager.emphasis, scale * new Vector3(openedSquare.pos.x, openedSquare.pos.y, 0), Quaternion.identity, ResourcesManager.parent.transform);
+            }
+        }
+        */
     }
 
     // ================================================== 細かいメソッド ==================================================================================
@@ -246,7 +332,7 @@ public class MineManager : MonoBehaviour
         public List<Vector2Int> minesPos = new List<Vector2Int>();
 
         public int mineNum;
-        public mapStat(Vector2Int _mapSize) //配列はlistと違って必ずインスタンス化の必要がある
+        public mapStat(Vector2Int _mapSize) //配列はlistと違って必ずここでインスタンス化の必要がある サイズを必ず決めなければならないから
         {
             this.ugS = new ugArray[_mapSize.x, _mapSize.y];
             for (int i = 0; i < _mapSize.x; i++)
@@ -259,6 +345,7 @@ public class MineManager : MonoBehaviour
         {
             public UpperManager upMana;
             public GroundManager grMana;
+            public EmphasisManager emMana;
 
             public void instantiateUpper(Vector2Int _vc, GameObject go)
             {
@@ -271,7 +358,15 @@ public class MineManager : MonoBehaviour
                 this.grMana = go.GetComponent<GroundManager>();
                 this.grMana.instantiate(_vc);
             }
+
+            public void instantiateEmphasis(Vector2Int _vc, GameObject go)
+            {
+                this.emMana = go.GetComponent<EmphasisManager>();
+                this.emMana.instantiate(_vc);
+            }
         }
+
+        public List<hintNode> openedSquares = new List<hintNode>();
     }
 
     class node
@@ -283,5 +378,25 @@ public class MineManager : MonoBehaviour
             this.position = _position;
             this.delay = _delay;
         }
+    }
+
+
+    public class hintNode
+    {
+        public Vector2Int pos;
+        public bool ischecked;
+
+        public hintNode(Vector2Int _pos)
+        {
+            this.pos = _pos;
+            this.ischecked = false;
+        }
+    }
+
+    public enum waitType
+    {
+        open,
+        flag,
+        check
     }
 }

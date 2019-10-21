@@ -29,6 +29,6 @@ public class GroundManager : MonoBehaviour
 
     public void setMineCountSpr()
     {
-        sprren.sprite = ResourcesManager.sprCounts[mineCount];
+        if(hasMine == false) sprren.sprite = ResourcesManager.sprCounts[mineCount];
     }
 }
