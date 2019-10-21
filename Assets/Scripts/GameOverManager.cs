@@ -46,10 +46,12 @@ public class GameOverManager : MonoBehaviour
     {
         this.gameObject.SetActive(true);
         textgameover.GetComponent<Text>().text = "Game Clear\nTime : " + ((int)time / 60).ToString() + "m " + (time % 60).ToString("f1") + "s";
-        StartCoroutine(GameClearAnimation());
+        StartCoroutine(GameClearAnimation(time));
+
+        
     }
 
-    IEnumerator GameClearAnimation()
+    IEnumerator GameClearAnimation(float time)
     {
         yield return new WaitForSeconds(1);
         for (int i = 0; i <= 50; i++)
@@ -73,5 +75,9 @@ public class GameOverManager : MonoBehaviour
 
             yield return null;
         }
+
+        var millsec = (int)(time * 1000);
+        var timeScore = new System.TimeSpan(0, 0, 0, 0, millsec);
+        naichilab.RankingLoader.Instance.SendScoreAndShowRanking(timeScore);
     }
 }
